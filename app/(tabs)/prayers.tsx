@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert, Animated } from 'react-native';
-import { Stack, router, useFocusEffect, useNavigation } from 'expo-router';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { Plus, Heart, CheckCircle, Users, Flame, MessageCircle, BookOpen } from 'lucide-react-native';
 import { PrayerCard } from '@/components/PrayerCard';
 import { EmptyState } from '@/components/EmptyState';
@@ -32,16 +32,22 @@ export default function PrayersScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchPrayers = useCallback(async () => {
-    if (!user?.id || !organization?.id) {
+    if (!user?.id) {
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
     try {
-      const activeFilter = `filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${organization.id}&filter[answered][_eq]=false,0`;
-      const answeredFilter = `filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${organization.id}&filter[answered][_eq]=1`;
-      const communityFilter = `filter[organization_id][_eq]=${organization.id}&filter[shareOnWall][_eq]=1`;
+      let activeFilter = `filter[user_id][_eq]=${user.id}&filter[answered][_eq]=false,0`;
+      let answeredFilter = `filter[user_id][_eq]=${user.id}&filter[answered][_eq]=1`;
+      let communityFilter = `filter[shareOnWall][_eq]=1`;
+
+      if (organization?.id) {
+        activeFilter = `filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${organization.id}&filter[answered][_eq]=false,0`;
+        answeredFilter = `filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${organization.id}&filter[answered][_eq]=1`;
+        communityFilter = `filter[organization_id][_eq]=${organization.id}&filter[shareOnWall][_eq]=1`;
+      }
 
       const [activeRes, answeredRes, communityRes] = await Promise.all([
         fetchWithAuth(`${getDirectusApiUrl()}/items/prayers?${activeFilter}&fields=*,user_id.id,user_id.first_name,user_id.last_name&sort=-date_created`),
@@ -74,9 +80,17 @@ export default function PrayersScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, user?.accessToken, organization?.id]);
+  }, [user?.id, organization?.id]);
 
   const navigation = useNavigation();
+
+  const handleAddPrayer = useCallback(() => {
+    if (isLoggedIn) {
+      router.push('/prayer/new');
+    } else {
+      router.push('/login');
+    }
+  }, [isLoggedIn]);
 
   useEffect(() => {
     Animated.loop(
@@ -93,7 +107,7 @@ export default function PrayersScreen() {
         }),
       ])
     ).start();
-  }, []);
+  }, [blinkAnim]);
 
   useFocusEffect(
     useCallback(() => {
@@ -118,9 +132,9 @@ export default function PrayersScreen() {
         ),
       });
 
-      if (user?.id && organization?.id) {
+      if (user?.id) {
         console.log('Fetching prayers on focus...');
-        fetchPrayers();
+        void fetchPrayers();
       } else {
         setIsLoading(false);
       }
@@ -128,7 +142,7 @@ export default function PrayersScreen() {
       return () => {
         console.log('Prayers screen unfocused');
       };
-    }, [isLoggedIn, user?.id, organization?.id, fetchPrayers])
+    }, [isLoggedIn, user?.id, fetchPrayers, navigation, handleAddPrayer])
   );
 
   useEffect(() => {
@@ -156,7 +170,7 @@ export default function PrayersScreen() {
       }
     };
     
-    checkOrganizerRole();
+    void checkOrganizerRole();
   }, [organization?.id, user?.id]);
 
   const refetch = fetchPrayers;
@@ -287,14 +301,6 @@ export default function PrayersScreen() {
   const handleSubmitPrayer = async (comment: string) => {
     if (selectedPrayer) {
       await markPrayed(selectedPrayer.id, comment);
-    }
-  };
-
-  const handleAddPrayer = () => {
-    if (isLoggedIn) {
-      router.push('/prayer/new');
-    } else {
-      router.push('/login');
     }
   };
 

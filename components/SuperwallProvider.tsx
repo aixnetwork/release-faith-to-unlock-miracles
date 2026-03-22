@@ -40,19 +40,22 @@ export const SuperwallProvider = ({ children }: SuperwallProviderProps) => {
   // Safely access user store with fallbacks
   let plan = 'free';
   let isLoggedIn = false;
+  let hasHydrated = false;
   
   try {
     const userStore = useUserStore();
     plan = userStore?.plan || 'free';
     isLoggedIn = userStore?.isLoggedIn || false;
-    
-    // Mark store as ready after hydration is complete
-    if (!isStoreReady && userStore?._hasHydrated) {
-      setIsStoreReady(true);
-    }
+    hasHydrated = userStore?._hasHydrated || false;
   } catch (error) {
     console.warn('Error accessing user store in SuperwallProvider:', error);
   }
+
+  useEffect(() => {
+    if (!isStoreReady && hasHydrated) {
+      setIsStoreReady(true);
+    }
+  }, [hasHydrated, isStoreReady]);
 
   const showSuperwall = useCallback((superwallOptions: SuperwallOptions = {}) => {
     try {
