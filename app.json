@@ -29,15 +29,7 @@
         "NSLocationWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location."
       },
       "entitlements": {
-        "com": {
-          "apple": {
-            "developer": {
-              "networking": {
-                "wifi-info": true
-              }
-            }
-          }
-        }
+        "com.apple.developer.networking.wifi-info": true
       }
     },
     "android": {
@@ -45,7 +37,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.aix-releasefaith-to-unlock-miracles",
+      "package": "app.aix_releasefaith_to_unlock_miracles",
       "permissions": [
         "android.permission.VIBRATE",
         "RECORD_AUDIO",
