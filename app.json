@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.aix.faithful-uplift-market-w560ebcv",
+      "bundleIdentifier": "app.aix-releasefaith-to-unlock-miracles",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio",
@@ -45,7 +45,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.aix.faithful_uplift_market_w560ebcv",
+      "package": "app.aix-releasefaith-to-unlock-miracles",
       "permissions": [
         "android.permission.VIBRATE",
         "RECORD_AUDIO",
