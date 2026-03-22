@@ -13,12 +13,12 @@ import {
   Animated,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { Calendar, Tag, CheckCircle, Send, User, MessageCircle, ChevronLeft, Heart, Reply, Users, Info } from 'lucide-react-native';
+import { Calendar, Tag, CheckCircle, Send, User, MessageCircle, Heart, Reply, Users } from 'lucide-react-native';
 import { BackButton } from '@/components/BackButton';
 import { theme } from '@/constants/theme';
 import { Colors } from '@/constants/Colors';
 import { useUserStore } from '@/store/userStore';
-import { getFirstName, getFullName } from '@/utils/nameUtils';
+import { getFirstName } from '@/utils/nameUtils';
 
 import { ENV } from '@/config/env';
 import { fetchWithAuth } from '@/utils/authUtils';
@@ -63,29 +63,18 @@ export default function PrayerDetailScreen() {
   const [currentPrayerIndex, setCurrentPrayerIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  const fetchPrayer = async () => {
+  const fetchPrayer = useCallback(async () => {
     if (!id) return;
     try {
       setPrayerLoading(true);
-      const response = await fetch(
-        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayers/${id}?fields=*,user_id.id,user_id.first_name,user_id.last_name`,
-        {
-          headers: {
-            'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-        }
+      const response = await fetchWithAuth(
+        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayers/${id}?fields=*,user_id.id,user_id.first_name,user_id.last_name`
       );
       if (response.ok) {
         const data = await response.json();
         
         const commentCountUrl = `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayer_comments?filter[prayer_id][_eq]=${id}&aggregate[count]=id`;
-        const commentCountResponse = await fetch(commentCountUrl, {
-          headers: {
-            'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        const commentCountResponse = await fetchWithAuth(commentCountUrl);
         
         let commentCount = data.data.prayerCount || 0;
         if (commentCountResponse.ok) {
@@ -100,20 +89,14 @@ export default function PrayerDetailScreen() {
     } finally {
       setPrayerLoading(false);
     }
-  };
+  }, [id]);
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     if (!id) return;
     try {
       setCommentsLoading(true);
-      const response = await fetch(
-        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayer_comments?filter[prayer_id][_eq]=${id}&fields=*,user_id.id,user_id.first_name,user_id.last_name,user_id.email&sort=date_created`,
-        {
-          headers: {
-            'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-        }
+      const response = await fetchWithAuth(
+        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayer_comments?filter[prayer_id][_eq]=${id}&fields=*,user_id.id,user_id.first_name,user_id.last_name,user_id.email&sort=date_created`
       );
       if (response.ok) {
         const data = await response.json();
@@ -121,8 +104,8 @@ export default function PrayerDetailScreen() {
         setComments(data.data || []);
         
         if (user?.id && data.data) {
-          const userHasPrayed = data.data.some((comment: Comment) => 
-            comment.user_id?.id === user.id
+          const userHasPrayed = data.data.some((c: Comment) => 
+            c.user_id?.id === user.id
           );
           setHasUserPrayed(userHasPrayed);
         }
@@ -132,12 +115,12 @@ export default function PrayerDetailScreen() {
     } finally {
       setCommentsLoading(false);
     }
-  };
+  }, [id, user?.id]);
 
   useEffect(() => {
     fetchPrayer();
     fetchComments();
-  }, [id]);
+  }, [fetchPrayer, fetchComments]);
 
   useEffect(() => {
     if (comments.length === 0) return;
@@ -167,7 +150,7 @@ export default function PrayerDetailScreen() {
       console.log('Prayer detail screen focused, refetching data...');
       fetchPrayer();
       fetchComments();
-    }, [id])
+    }, [fetchPrayer, fetchComments])
   );
 
   useEffect(() => {
@@ -178,20 +161,14 @@ export default function PrayerDetailScreen() {
       }
 
       const prayerUserId = typeof prayer.user_id === 'string' ? prayer.user_id : prayer.user_id?.id;
-      const isOwner = prayerUserId === user.id;
+      const _isOwner = prayerUserId === user.id;
       
       let organizerCheck = false;
       if (prayer.organization_id) {
         console.log('Checking organizer role for:', { userId: user.id, organizationId: prayer.organization_id });
         try {
-          const response = await fetch(
-            `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organization_users?filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${prayer.organization_id}&fields=role_id`,
-            {
-              headers: {
-                'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-                'Content-Type': 'application/json',
-              },
-            }
+          const response = await fetchWithAuth(
+            `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organization_users?filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${prayer.organization_id}&fields=role_id`
           );
           
           if (response.ok) {
@@ -250,14 +227,10 @@ export default function PrayerDetailScreen() {
       
       console.log('Comment payload:', JSON.stringify(commentData, null, 2));
       
-      const response = await fetch(
+      const response = await fetchWithAuth(
         `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayer_comments`,
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify(commentData),
         }
       );
@@ -291,14 +264,8 @@ export default function PrayerDetailScreen() {
     }
 
     try {
-      const orgResponse = await fetch(
-        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organization_users?filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${prayer.organization_id}&fields=role_id`,
-        {
-          headers: {
-            'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-        }
+      const orgResponse = await fetchWithAuth(
+        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organization_users?filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${prayer.organization_id}&fields=role_id`
       );
       
       if (!orgResponse.ok || !(await orgResponse.json()).data?.length) {
@@ -327,14 +294,8 @@ export default function PrayerDetailScreen() {
     }
 
     try {
-      const orgResponse = await fetch(
-        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organization_users?filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${prayer.organization_id}&fields=role_id`,
-        {
-          headers: {
-            'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-        }
+      const orgResponse = await fetchWithAuth(
+        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organization_users?filter[user_id][_eq]=${user.id}&filter[organization_id][_eq]=${prayer.organization_id}&fields=role_id`
       );
       
       if (!orgResponse.ok || !(await orgResponse.json()).data?.length) {
@@ -352,14 +313,10 @@ export default function PrayerDetailScreen() {
       const newLiked = isLiked ? 0 : 1;
       console.log('Liking comment:', commentId, 'Current:', currentLiked, 'isLiked:', isLiked, 'New:', newLiked);
       
-      const response = await fetch(
+      const response = await fetchWithAuth(
         `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayer_comments/${commentId}`,
         {
           method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({ liked: newLiked }),
         }
       );
@@ -384,14 +341,8 @@ export default function PrayerDetailScreen() {
     
     if (prayer?.organization_id && commentUserId) {
       try {
-        const response = await fetch(
-          `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organization_users?filter[user_id][_eq]=${commentUserId}&filter[organization_id][_eq]=${prayer.organization_id}&fields=role_id`,
-          {
-            headers: {
-              'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-              'Content-Type': 'application/json',
-            },
-          }
+        const response = await fetchWithAuth(
+          `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organization_users?filter[user_id][_eq]=${commentUserId}&filter[organization_id][_eq]=${prayer.organization_id}&fields=role_id`
         );
         
         if (response.ok) {
@@ -421,14 +372,8 @@ export default function PrayerDetailScreen() {
     }
 
     try {
-      const response = await fetch(
-        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayer_comments?filter[prayer_id][_eq]=${id}&filter[user_id][_eq]=${user.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-        }
+      const response = await fetchWithAuth(
+        `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayer_comments?filter[prayer_id][_eq]=${id}&filter[user_id][_eq]=${user.id}`
       );
 
       if (response.ok) {
@@ -440,8 +385,8 @@ export default function PrayerDetailScreen() {
           return;
         }
       }
-    } catch (error) {
-      console.error('Error checking existing comment:', error);
+    } catch (_error) {
+      console.error('Error checking existing comment:', _error);
     }
 
     setCommentModalVisible(true);
@@ -476,14 +421,10 @@ export default function PrayerDetailScreen() {
       
       console.log('Comment payload:', JSON.stringify(commentData, null, 2));
 
-      const commentResponse = await fetch(
+      const commentResponse = await fetchWithAuth(
         `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayer_comments`,
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify(commentData),
         }
       );
@@ -559,14 +500,10 @@ export default function PrayerDetailScreen() {
           };
           console.log('Answered comment payload:', JSON.stringify(commentData, null, 2));
           
-          const commentResponse = await fetch(
+          const commentResponse = await fetchWithAuth(
             `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/prayer_comments`,
             {
               method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${ENV.EXPO_PUBLIC_API_TOKEN}`,
-                'Content-Type': 'application/json',
-              },
               body: JSON.stringify(commentData),
             }
           );
@@ -613,7 +550,7 @@ export default function PrayerDetailScreen() {
         hour: '2-digit',
         minute: '2-digit',
       });
-    } catch (error) {
+    } catch {
       return 'Invalid date';
     }
   };
