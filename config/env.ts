@@ -1,29 +1,29 @@
 const getBackendUrl = () => {
-  // Priority 1: Explicit backend URL from env
-  const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-  if (backendUrl && backendUrl.trim() !== '') {
-    console.log('✅ Using Backend URL from env:', backendUrl);
-    return backendUrl;
-  }
-  
-  // Priority 2: Browser origin (only for local development)
-  if (typeof window !== 'undefined') {
-    const { hostname, origin } = window.location;
-    const isLocal = hostname === 'localhost' || 
-                    hostname === '127.0.0.1' || 
-                    hostname.startsWith('192.168.') ||
-                    hostname.endsWith('.local'); // basic check for local network
-    
-    if (isLocal) {
-      console.log('✅ Using local origin as backend URL:', origin);
-      return origin;
+  try {
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+    if (backendUrl && backendUrl.trim() !== '') {
+      console.log('✅ Using Backend URL from env:', backendUrl);
+      return backendUrl;
     }
     
-    console.log('⚠️ Ignoring production origin for backend URL (likely static deployment)');
+    const { Platform } = require('react-native');
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname || '';
+      const origin = window.location.origin || '';
+      const isLocal = hostname === 'localhost' || 
+                      hostname === '127.0.0.1' || 
+                      hostname.startsWith('192.168.') ||
+                      hostname.endsWith('.local');
+      
+      if (isLocal) {
+        console.log('✅ Using local origin as backend URL:', origin);
+        return origin;
+      }
+    }
+  } catch (e) {
+    console.warn('Error resolving backend URL:', e);
   }
   
-  // Return empty string to allow lib/trpc.ts to handle the fallback
-  // This prevents the app from defaulting to the Toolkit URL which doesn't have the app's routes
   return '';
 };
 
