@@ -11,6 +11,7 @@ import { useAdminStore } from '@/store/adminStore';
 import * as Haptics from 'expo-haptics';
 
 import { ENV } from '@/config/env';
+import { getDirectusApiUrl } from '@/utils/api';
 
 interface DemoAccountConfig {
   type: 'individual' | 'family' | 'church';
@@ -166,14 +167,13 @@ export default function LoginScreen() {
   // Only check authentication once on mount to prevent loops
   useEffect(() => {
     const checkInitialAuth = () => {
-      const userLoggedIn = isLoggedIn;
+      const currentIsLoggedIn = isLoggedIn;
       const adminStatus = isAdmin();
       
-      // Only redirect if we're on the login page and user is already authenticated
       const isOnLoginPage = segments[segments.length - 1] === 'login';
       
       if (isOnLoginPage) {
-        if (userLoggedIn) {
+        if (currentIsLoggedIn) {
           router.replace('/');
         } else if (adminStatus) {
           router.replace('/admin');
@@ -183,11 +183,11 @@ export default function LoginScreen() {
       setHasCheckedAuth(true);
     };
 
-    // Add a small delay to prevent immediate redirects
     const timer = setTimeout(checkInitialAuth, 100);
     
     return () => clearTimeout(timer);
-  }, []); // Empty dependency array to run only once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, isAdmin, segments]);
 
   const handleLogin = async () => {
     if (!email.trim()) {
@@ -382,7 +382,7 @@ export default function LoginScreen() {
         return;
       }
 
-      const directusApiUrl = ENV.EXPO_PUBLIC_RORK_API_BASE_URL;
+      const directusApiUrl = getDirectusApiUrl();
       const loginUrl = `${directusApiUrl}/auth/login`;
       console.log('🔐 Attempting Directus login to:', loginUrl);
 
@@ -503,7 +503,7 @@ export default function LoginScreen() {
 
       let userResponse;
       try {
-        userResponse = await fetch(`${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/users/me`, {
+        userResponse = await fetch(`${getDirectusApiUrl()}/users/me`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -532,7 +532,7 @@ export default function LoginScreen() {
       let orgUserResponse;
       try {
         orgUserResponse = await fetch(
-          `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organization_users?filter[user_id][_eq]=${user.id}&fields=*`,
+          `${getDirectusApiUrl()}/items/organization_users?filter[user_id][_eq]=${user.id}&fields=*`,
           {
             method: 'GET',
             headers: {
@@ -569,7 +569,7 @@ export default function LoginScreen() {
           let orgResponse;
           try {
             orgResponse = await fetch(
-              `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/organizations/${organizationId}`,
+              `${getDirectusApiUrl()}/items/organizations/${organizationId}`,
               {
                 method: 'GET',
                 headers: {

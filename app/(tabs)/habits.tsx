@@ -38,7 +38,8 @@ import { useHabitStore } from '@/store/habitStore';
 import { useUserStore } from '@/store/userStore';
 import { Habit, HabitInsight } from '@/types';
 import BottomNavigation from '@/components/BottomNavigation';
-import { ENV } from '@/config/env';
+import { fetchWithAuth } from '@/utils/authUtils';
+import { getDirectusApiUrl } from '@/utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -210,20 +211,20 @@ export default function HabitsScreen() {
 
   useEffect(() => {
     if (_hasHydrated && user?.accessToken && user?.id) {
-      fetchHabits();
+      void fetchHabits();
     }
-  }, [_hasHydrated, user?.accessToken, user?.id]);
+  }, [_hasHydrated, user?.accessToken, user?.id, fetchHabits]);
 
   useEffect(() => {
     if (habits.length > 0) {
       habits.forEach(habit => {
         const habitCompletions = completions[habit.id] || [];
         if (habitCompletions.length >= 7) {
-          generateInsights(habit.id);
+          void generateInsights(habit.id);
         }
       });
     }
-  }, [habits, completions]);
+  }, [habits, completions, generateInsights]);
 
   const handleCompleteHabit = async (habitId: string) => {
     if (!user?.accessToken || !user?.id || completingHabitId) return;
@@ -237,13 +238,9 @@ export default function HabitsScreen() {
         const todayCompletion = habitCompletions.find(c => c.completed_date === today);
         
         if (todayCompletion) {
-          const url = `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/habit_completions/${todayCompletion.id}`;
-          const response = await fetch(url, {
+          const url = `${getDirectusApiUrl()}/items/habit_completions/${todayCompletion.id}`;
+          const response = await fetchWithAuth(url, {
             method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${user.accessToken}`,
-              'Content-Type': 'application/json',
-            },
           });
 
           if (response.ok) {
@@ -253,13 +250,9 @@ export default function HabitsScreen() {
           }
         }
       } else {
-        const url = `${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/habit_completions`;
-        const response = await fetch(url, {
+        const url = `${getDirectusApiUrl()}/items/habit_completions`;
+        const response = await fetchWithAuth(url, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${user.accessToken}`,
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({
             habit_id: habitId,
             user_id: user.id,

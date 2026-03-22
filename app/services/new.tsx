@@ -17,6 +17,8 @@ import { Stack, router } from 'expo-router';
 import { ChevronDown, Check, ArrowLeft } from 'lucide-react-native';
 import { ENV } from '@/config/env';
 import { useUserStore } from '@/store/userStore';
+import { fetchWithAuth } from '@/utils/authUtils';
+import { getDirectusApiUrl } from '@/utils/api';
 
 type ServiceType = {
   id: string;
@@ -49,7 +51,7 @@ export default function CreateServiceScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchServiceTypes();
+    void fetchServiceTypes();
   }, []);
 
   const fetchServiceTypes = async () => {
@@ -168,12 +170,8 @@ export default function CreateServiceScreen() {
 
       console.log('Creating service with data:', serviceData);
 
-      const response = await fetch(`${ENV.EXPO_PUBLIC_RORK_API_BASE_URL}/items/services`, {
+      const response = await fetchWithAuth(`${getDirectusApiUrl()}/items/services`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.accessToken || ENV.EXPO_PUBLIC_API_TOKEN}`,
-        },
         body: JSON.stringify(serviceData),
       });
 

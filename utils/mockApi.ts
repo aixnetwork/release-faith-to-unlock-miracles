@@ -9,6 +9,7 @@ export const MOCK_PRAYERS = [
     category: 'health',
     shareOnWall: true,
     status: 'published',
+    organization_id: 888,
     user_id: {
       id: 'demo-user-family-001',
       first_name: 'Sarah',
@@ -25,6 +26,7 @@ export const MOCK_PRAYERS = [
     category: 'work',
     shareOnWall: true,
     status: 'published',
+    organization_id: 888,
     user_id: {
       id: 'member_2',
       first_name: 'John',
@@ -41,6 +43,7 @@ export const MOCK_PRAYERS = [
     category: 'family',
     shareOnWall: true,
     status: 'published',
+    organization_id: 889,
     user_id: {
       id: 'demo-user-family-custom',
       first_name: 'Prosper',
@@ -51,10 +54,59 @@ export const MOCK_PRAYERS = [
   }
 ];
 
+const MOCK_COMMENTS: Record<string, any[]> = {
+  '1': [
+    {
+      id: 'comment-1',
+      prayer_id: '1',
+      comments: 'Praying for your recovery! God is faithful.',
+      date_created: new Date(Date.now() - 3600000).toISOString(),
+      user_id: { id: 'member_2', first_name: 'John', last_name: 'Doe', email: 'john@example.com' },
+      liked: 1,
+      comment_id: null,
+    },
+    {
+      id: 'comment-2',
+      prayer_id: '1',
+      comments: 'Lifting you up in prayer today.',
+      date_created: new Date(Date.now() - 7200000).toISOString(),
+      user_id: { id: 'demo-user-family-custom', first_name: 'Prosper', last_name: 'Family', email: 'family@gmail.com' },
+      liked: 0,
+      comment_id: null,
+    },
+  ],
+  '2': [
+    {
+      id: 'comment-3',
+      prayer_id: '2',
+      comments: 'Congratulations on the answered prayer!',
+      date_created: new Date(Date.now() - 86400000).toISOString(),
+      user_id: { id: 'demo-user-family-001', first_name: 'Sarah', last_name: 'Johnson', email: 'sarah@example.com' },
+      liked: 1,
+      comment_id: null,
+    },
+  ],
+  '3': [],
+};
+
+function extractPrayerIdFromUrl(url: string): string | null {
+  const prayersPath = url.split('/items/prayers/')[1];
+  if (!prayersPath) return null;
+  const id = prayersPath.split('?')[0];
+  return id && id.length > 0 && !id.includes('&') ? id : null;
+}
+
+function extractCommentPrayerIdFilter(url: string): string | null {
+  const match = url.match(/filter\[prayer_id\]\[_eq\]=(\w+)/);
+  return match ? match[1] : null;
+}
+
 export async function mockFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  console.log('🛑 Intercepted by Mock API:', url);
+  console.log('🛑 Intercepted by Mock API:', url, options.method || 'GET');
   
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate latency
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  const method = (options.method || 'GET').toUpperCase();
 
   // Organization Users / Roles
   if (url.includes('/items/organization_users')) {
@@ -70,35 +122,148 @@ export async function mockFetch(url: string, options: RequestInit = {}): Promise
     });
   }
 
+  // Prayer Comments - must be checked BEFORE prayers to avoid /items/prayers matching
+  if (url.includes('/items/prayer_comments')) {
+    // POST - Create comment
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      const newComment = {
+        id: `comment-${Date.now()}`,
+        ...body,
+        date_created: new Date().toISOString(),
+        user_id: body.user_id ? {
+          id: body.user_id,
+          first_name: 'Demo',
+          last_name: 'User',
+          email: 'demo@example.com',
+        } : null,
+      };
+      const prayerId = body.prayer_id;
+      if (prayerId && MOCK_COMMENTS[prayerId]) {
+        MOCK_COMMENTS[prayerId].push(newComment);
+      } else if (prayerId) {
+        MOCK_COMMENTS[prayerId] = [newComment];
+      }
+      return new Response(JSON.stringify({ data: newComment }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // PATCH - Update comment (like/unlike)
+    if (method === 'PATCH') {
+      const commentId = url.split('/prayer_comments/')[1]?.split('?')[0];
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: commentId, ...body }
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // GET - Aggregate count
+    if (url.includes('aggregate[count]')) {
+      const prayerId = extractCommentPrayerIdFilter(url);
+      const comments = prayerId ? (MOCK_COMMENTS[prayerId] || []) : [];
+      return new Response(JSON.stringify({
+        data: [{ count: { id: comments.length } }]
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // GET - List comments for a prayer
+    const prayerId = extractCommentPrayerIdFilter(url);
+    if (prayerId) {
+      const comments = MOCK_COMMENTS[prayerId] || [];
+      return new Response(JSON.stringify({ data: comments }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   // Prayers
   if (url.includes('/items/prayers')) {
     // PATCH (Update)
-    if (options.method === 'PATCH') {
+    if (method === 'PATCH') {
+      const prayerId = extractPrayerIdFromUrl(url);
+      const body = JSON.parse(options.body as string || '{}');
+      const prayer = MOCK_PRAYERS.find(p => p.id === prayerId);
+      if (prayer) {
+        Object.assign(prayer, body);
+      }
       return new Response(JSON.stringify({
-        data: { id: url.split('/').pop(), ...JSON.parse(options.body as string || '{}') }
-      }), { status: 200 });
+        data: { id: prayerId, ...body }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    
+    // POST (Create)
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      const newPrayer = {
+        id: `prayer-${Date.now()}`,
+        ...body,
+        date_created: new Date().toISOString(),
+        prayerCount: 0,
+      };
+      MOCK_PRAYERS.push(newPrayer as any);
+      return new Response(JSON.stringify({ data: newPrayer }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
     // DELETE
-    if (options.method === 'DELETE') {
+    if (method === 'DELETE') {
       return new Response(null, { status: 204 });
     }
+
+    // GET - Aggregate count
+    if (url.includes('aggregate[count]')) {
+      return new Response(JSON.stringify({
+        data: [{ count: { id: MOCK_PRAYERS.length } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
     
-    // GET List
-    const filter = url;
+    // GET - Single prayer by ID
+    const singlePrayerId = extractPrayerIdFromUrl(url);
+    if (singlePrayerId) {
+      const prayer = MOCK_PRAYERS.find(p => p.id === singlePrayerId);
+      if (prayer) {
+        return new Response(JSON.stringify({ data: prayer }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return new Response(JSON.stringify({ data: null }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // GET - List with filters
     let filteredPrayers = [...MOCK_PRAYERS];
     
-    // Filter logic (simplified)
-    if (filter.includes('answered][_eq]=1')) {
+    if (url.includes('answered][_eq]=1')) {
       filteredPrayers = filteredPrayers.filter(p => p.answered);
-    } else if (filter.includes('answered][_eq]=false') || filter.includes('answered][_eq]=0')) {
+    } else if (url.includes('answered][_eq]=false') || url.includes('answered][_eq]=0')) {
       filteredPrayers = filteredPrayers.filter(p => !p.answered);
     }
     
-    // Community filter
-    if (filter.includes('shareOnWall][_eq]=1')) {
-        // Just return all that are shared
-        filteredPrayers = MOCK_PRAYERS.filter(p => p.shareOnWall);
+    if (url.includes('shareOnWall][_eq]=1')) {
+      filteredPrayers = MOCK_PRAYERS.filter(p => p.shareOnWall);
+    }
+
+    if (url.includes('is_answered][_eq]=true')) {
+      filteredPrayers = filteredPrayers.filter(p => p.answered);
     }
 
     return new Response(JSON.stringify({
@@ -112,18 +277,18 @@ export async function mockFetch(url: string, options: RequestInit = {}): Promise
   // Organizations
   if (url.includes('/items/organizations')) {
     if (url.includes('/900') || url.includes('demo-user-church-custom')) {
-        return new Response(JSON.stringify({
-          data: [{
-            id: 900,
-            name: 'Prosper Church',
-            city: 'Austin',
-            status: 'active',
-            organizer_id: 'demo-user-church-custom',
-            plan: 'org_large',
-            maxMembers: 500,
-            date_created: new Date().toISOString()
-          }]
-        }), { status: 200 });
+      return new Response(JSON.stringify({
+        data: [{
+          id: 900,
+          name: 'Prosper Church',
+          city: 'Austin',
+          status: 'active',
+          organizer_id: 'demo-user-church-custom',
+          plan: 'org_large',
+          maxMembers: 500,
+          date_created: new Date().toISOString()
+        }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
     return new Response(JSON.stringify({
@@ -137,7 +302,7 @@ export async function mockFetch(url: string, options: RequestInit = {}): Promise
         maxMembers: 10,
         date_created: new Date().toISOString()
       }]
-    }), { status: 200 });
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
   // Groups
@@ -146,40 +311,27 @@ export async function mockFetch(url: string, options: RequestInit = {}): Promise
     
     return new Response(JSON.stringify({
       data: isChurch ? [
-        {
-          id: 10,
-          name: 'Youth Group',
-          description: 'Friday night youth ministry',
-          memberCount: 45
-        },
-        {
-          id: 11,
-          name: 'Worship Team',
-          description: 'Sunday worship leaders',
-          memberCount: 12
-        },
-        {
-          id: 12,
-          name: 'Bible Study',
-          description: 'Wednesday evening study',
-          memberCount: 25
-        }
+        { id: 10, name: 'Youth Group', description: 'Friday night youth ministry', memberCount: 45 },
+        { id: 11, name: 'Worship Team', description: 'Sunday worship leaders', memberCount: 12 },
+        { id: 12, name: 'Bible Study', description: 'Wednesday evening study', memberCount: 25 }
       ] : [
-        {
-          id: 1,
-          name: 'Family Group',
-          description: 'Our family prayer group',
-          memberCount: 4
-        }
+        { id: 1, name: 'Family Group', description: 'Our family prayer group', memberCount: 4 }
       ]
-    }), { status: 200 });
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
   // Testimonials
   if (url.includes('/items/testimonials')) {
-    return new Response(JSON.stringify({
-      data: []
-    }), { status: 200 });
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: `testimonial-${Date.now()}`, ...body, date_created: new Date().toISOString() }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   // Plans
@@ -189,77 +341,178 @@ export async function mockFetch(url: string, options: RequestInit = {}): Promise
     if (!cleanSuffix || cleanSuffix === '' || cleanSuffix === '/') {
       return new Response(JSON.stringify({
         data: [
-          {
-            id: 'small_church',
-            name: 'Small Church',
-            maxMembers: 250,
-            description: 'Perfect for small congregations',
-            features: {},
-            period: 'month',
-            price: 149
-          },
-          {
-            id: 'large_church',
-            name: 'Large Church',
-            maxMembers: 10000,
-            description: 'Complete church management solution',
-            features: {},
-            period: 'month',
-            price: 499
-          },
-          {
-            id: 'group_family',
-            name: 'Family Plan',
-            maxMembers: 10,
-            description: 'Perfect for families',
-            features: {},
-            period: 'month',
-            price: 9.99,
-            status: 'published'
-          }
+          { id: 'small_church', name: 'Small Church', maxMembers: 250, description: 'Perfect for small congregations', features: {}, period: 'month', price: 149, status: 'published' },
+          { id: 'large_church', name: 'Large Church', maxMembers: 10000, description: 'Complete church management solution', features: {}, period: 'month', price: 499, status: 'published' },
+          { id: 'group_family', name: 'Family Plan', maxMembers: 10, description: 'Perfect for families', features: {}, period: 'month', price: 9.99, status: 'published' }
         ]
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // Mock check for different plans by ID
     if (url.includes('org_large') || url.includes('church') || url.includes('large_church')) {
-        return new Response(JSON.stringify({
-          data: {
-            id: 'large_church',
-            name: 'Large Church',
-            maxMembers: 10000,
-            description: 'Complete church management solution',
-            features: {},
-            period: 'monthly',
-            price: 499
-          }
-        }), { status: 200 });
+      return new Response(JSON.stringify({
+        data: { id: 'large_church', name: 'Large Church', maxMembers: 10000, description: 'Complete church management solution', features: {}, period: 'monthly', price: 499 }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
     return new Response(JSON.stringify({
-      data: {
-        id: 'group_family',
-        name: 'Family Plan',
-        maxMembers: 10,
-        description: 'Perfect for families',
-        features: {},
-        period: 'monthly',
-        price: 9.99
-      }
-    }), { status: 200 });
+      data: { id: 'group_family', name: 'Family Plan', maxMembers: 10, description: 'Perfect for families', features: {}, period: 'monthly', price: 9.99 }
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
-  // Comments
-  if (url.includes('/items/prayer_comments')) {
+  // Habits
+  if (url.includes('/items/habits')) {
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: `habit-${Date.now()}`, ...body, date_created: new Date().toISOString() }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (method === 'PATCH') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: url.split('/').pop()?.split('?')[0], ...body }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (method === 'DELETE') {
+      return new Response(null, { status: 204 });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Habit Completions
+  if (url.includes('/items/habit_completions')) {
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: `completion-${Date.now()}`, ...body }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (method === 'DELETE') {
+      return new Response(null, { status: 204 });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // User achievements / points
+  if (url.includes('/items/user_achievements')) {
+    if (url.includes('aggregate[sum]')) {
+      return new Response(JSON.stringify({
+        data: [{ sum: { points: 150 } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Prayer day completions
+  if (url.includes('/items/user_prayer_day_completions')) {
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: `pdc-${Date.now()}`, ...body }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Prayer plan progress
+  if (url.includes('/items/user_prayer_plan_progress')) {
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: `progress-${Date.now()}`, ...body }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (method === 'PATCH') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: url.split('/').pop()?.split('?')[0], ...body }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Prayer plans
+  if (url.includes('/items/prayer_plans')) {
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: `plan-${Date.now()}`, ...body, date_created: new Date().toISOString() }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Prayer days
+  if (url.includes('/items/prayer_days')) {
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: `day-${Date.now()}`, ...body }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Services
+  if (url.includes('/items/services')) {
+    if (method === 'POST') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: `service-${Date.now()}`, ...body, date_created: new Date().toISOString() }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (method === 'PATCH') {
+      const body = JSON.parse(options.body as string || '{}');
+      return new Response(JSON.stringify({
+        data: { id: url.split('/').pop()?.split('?')[0], ...body }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Service types
+  if (url.includes('/items/service_types')) {
     return new Response(JSON.stringify({
-      data: {
-        id: Math.random().toString(),
-        ...JSON.parse(options.body as string || '{}'),
-        date_created: new Date().toISOString()
-      }
-    }), { status: 200 });
+      data: [
+        { id: 1, name: 'Counseling', icon: 'heart', sort: 1 },
+        { id: 2, name: 'Music', icon: 'music', sort: 2 },
+        { id: 3, name: 'Teaching', icon: 'book', sort: 3 },
+      ]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Users endpoint
+  if (url.includes('/users')) {
+    if (url.includes('aggregate[countDistinct]')) {
+      return new Response(JSON.stringify({
+        data: [{ countDistinct: { id: 25 } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ data: [] }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   // Default fallback for unhandled mock routes
-  return new Response(JSON.stringify({ data: [] }), { status: 200 });
+  console.log('⚠️ Unhandled mock route:', url);
+  return new Response(JSON.stringify({ data: [] }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
 }
