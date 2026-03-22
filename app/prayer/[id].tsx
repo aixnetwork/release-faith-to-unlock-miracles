@@ -101,10 +101,11 @@ export default function PrayerDetailScreen() {
       if (response.ok) {
         const data = await response.json();
         console.log('Fetched comments:', JSON.stringify(data.data, null, 2));
-        setComments(data.data || []);
+        const commentsArray = Array.isArray(data.data) ? data.data : [];
+        setComments(commentsArray);
         
-        if (user?.id && data.data) {
-          const userHasPrayed = data.data.some((c: Comment) => 
+        if (user?.id && commentsArray.length > 0) {
+          const userHasPrayed = commentsArray.some((c: Comment) => 
             c.user_id?.id === user.id
           );
           setHasUserPrayed(userHasPrayed);
