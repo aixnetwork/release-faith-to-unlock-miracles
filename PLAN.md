@@ -1,20 +1,15 @@
-# Fix prayer detail fetch errors (CORS issue)
+# Mockup Mode - Full Demo Experience
 
-## Problem
-The prayer detail screen fails to load prayer data and comments with "Failed to fetch" errors. This happens because the screen makes direct API calls that get blocked by browser security (CORS) on the web preview.
+## Completed
+- [x] Prayer detail screen uses fetchWithAuth consistently (CORS fix)
+- [x] Enhanced mockApi.ts with rich demo data (prayers, habits, achievements, stats, services, testimonials, meetings, prayer plans)
+- [x] User-specific prayer filtering in mock API
+- [x] Auto-login as demo individual account on app start
+- [x] Mock data returns realistic stats for home dashboard (7-day streak, 450 points, 4 habits, completions)
+- [x] Demo accounts still available on login screen (Individual, Family, Church)
 
-## Fix
-Replace all direct API calls in the prayer detail screen with the app's existing authenticated fetch helper, which automatically routes requests through a proxy on web to avoid CORS blocking. This also improves security by using the logged-in user's token instead of a hardcoded static token.
-
-## What changes
-- **Prayer loading**: Will use the proxy-aware fetch helper instead of direct calls
-- **Comments loading**: Same fix applied
-- **Adding comments**: Same fix applied  
-- **Liking comments**: Same fix applied
-- **Replying to comments**: Same fix applied
-- **Marking prayer as answered**: Already uses the correct helper — no change needed
-- **All other API calls in this screen**: Updated to use the proxy-aware helper
-
-## Impact
-- Prayer detail screen will load correctly on both web and mobile
-- No visual or behavioral changes — just fixes the network errors
+## How it works
+- App auto-logs in as "John Doe" (Individual plan) on first launch
+- All API calls with demo tokens are intercepted by mockApi.ts
+- Users can switch accounts via login screen demo buttons
+- No backend required - fully self-contained demo
