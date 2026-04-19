@@ -134,6 +134,13 @@ export default function OrganizationLayout() {
         }} 
       />
       <Stack.Screen 
+        name="features" 
+        options={{ 
+          title: "Feature Controls",
+          headerTintColor: Colors.light.org1
+        }} 
+      />
+      <Stack.Screen 
         name="content/edit/[id]" 
         options={{ 
           title: "Edit Content",

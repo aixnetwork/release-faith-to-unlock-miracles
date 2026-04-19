@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { Book, Music, Quote, MessageSquare, Users, LogOut, BarChart, Settings, Shield, Database, Server, TrendingUp, UserCheck, Building, ShoppingBag, Clock, CreditCard } from 'lucide-react-native';
+import { Book, Music, Quote, MessageSquare, Users, LogOut, BarChart, Settings, Shield, Database, Server, TrendingUp, UserCheck, Building, ShoppingBag, Clock, CreditCard, Sliders } from 'lucide-react-native';
 import { Button } from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { Colors } from '@/constants/Colors';
@@ -415,6 +415,18 @@ export default function AdminDashboardScreen() {
               </View>
               <Text style={styles.cardTitle}>Plans</Text>
               <Text style={styles.cardSubtitle}>Manage subscription plans</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.card}
+              onPress={() => router.push('/admin/features')}
+              testID="admin-features-card"
+            >
+              <View style={[styles.iconContainer, { backgroundColor: '#2ecc7120' }]}>
+                <Sliders size={24} color="#2ecc71" />
+              </View>
+              <Text style={styles.cardTitle}>Features</Text>
+              <Text style={styles.cardSubtitle}>Enable/disable per church</Text>
             </TouchableOpacity>
           </View>
         </>

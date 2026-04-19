@@ -222,6 +222,13 @@ export default function AdminLayout() {
         }} 
       />
       <Stack.Screen 
+        name="features" 
+        options={{ 
+          title: "Feature Management",
+          headerTintColor: "#e74c3c"
+        }} 
+      />
+      <Stack.Screen 
         name="create-testimonial" 
         options={{ 
           title: "Create Testimonial",

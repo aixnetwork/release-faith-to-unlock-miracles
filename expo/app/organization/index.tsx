@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Animated, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Users, UserPlus, MessageCircle, Book, Settings, BarChart2, ChevronRight, LogOut, Shield } from 'lucide-react-native';
+import { Users, UserPlus, MessageCircle, Book, Settings, BarChart2, ChevronRight, LogOut, Shield, Sliders } from 'lucide-react-native';
 import { Button } from '@/components/Button';
 import { theme } from '@/constants/theme';
 import { Colors } from '@/constants/Colors';
@@ -503,6 +503,18 @@ export default function OrganizationDashboardScreen() {
             <View style={styles.menuItemLeft}>
               <Settings size={20} color={Colors.light.text} style={styles.menuIcon} />
               <Text style={styles.menuItemText}>Organization Settings</Text>
+            </View>
+            <ChevronRight size={20} color={Colors.light.textLight} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/organization/features')}
+            testID="org-features-menu"
+          >
+            <View style={styles.menuItemLeft}>
+              <Sliders size={20} color={Colors.light.text} style={styles.menuIcon} />
+              <Text style={styles.menuItemText}>Feature Controls</Text>
             </View>
             <ChevronRight size={20} color={Colors.light.textLight} />
           </TouchableOpacity>
